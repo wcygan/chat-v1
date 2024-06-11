@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package chat;
+
+import "google/protobuf/empty.proto";
+
+service ChatService {
+  // Join the chat and receive all messages
+  rpc JoinChat(JoinChatRequest) returns (stream ChatMessage);
+  // Send a message to the chat
+  rpc SendChatMessage(ChatMessage) returns (google.protobuf.Empty);
+}
+
+message JoinChatRequest {
+  string user = 1;
+  string chatRoom = 2;
+}
+
+message ChatMessage {
+  string user = 1;
+  string chatRoom = 2;
+  string message = 3;
+}
