@@ -5,6 +5,7 @@ import (
 	"fmt"
 	pb "github.com/wcygan/chat-v1/generated/go/chat/v1"
 	"google.golang.org/grpc"
+	"io"
 	"log"
 )
 
@@ -27,8 +28,11 @@ func main() {
 	go func() {
 		for {
 			in, err := stream.Recv()
-			if err != nil {
-				log.Fatalf("Failed to receive a message : %v", err)
+			if err == io.EOF {
+				log.Println("Stream closed by server")
+				break // Exit the loop if stream is closed
+			} else if err != nil {
+				log.Fatalf("Failed to receive a message: %v", err)
 			}
 			fmt.Printf("Received message %s from %s\n", in.Message, in.User)
 		}

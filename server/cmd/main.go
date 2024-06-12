@@ -6,6 +6,7 @@ import (
 	"github.com/nats-io/nats.go"
 	pb "github.com/wcygan/chat-v1/generated/go/chat/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"log"
 	"net"
@@ -62,13 +63,21 @@ type chatServer struct {
 func (s *chatServer) JoinChat(req *pb.JoinChatRequest, stream pb.ChatService_JoinChatServer) error {
 	// Subscribe to the chat room topic
 	_, err := s.nc.Subscribe(req.ChatRoom, func(m *nats.Msg) {
-		stream.Send(&pb.ChatMessage{
-			User:     "system",
-			ChatRoom: req.ChatRoom,
-			Message:  string(m.Data),
-		})
+		var msg pb.ChatMessage
+		// Deserialize the protobuf message
+		if err := proto.Unmarshal(m.Data, &msg); err != nil {
+			log.Printf("Error deserializing message: %v", err)
+			return
+		}
+		log.Printf("Sending message from %s in chat room %s: %s", msg.User, msg.ChatRoom, msg.Message)
+		err := stream.Send(&msg)
+		if err != nil {
+			log.Printf("Error sending message: %v", err)
+			return
+		}
 	})
 	if err != nil {
+		log.Printf("Error sending message: %v", err)
 		return err
 	}
 	return nil
@@ -76,8 +85,13 @@ func (s *chatServer) JoinChat(req *pb.JoinChatRequest, stream pb.ChatService_Joi
 
 func (s *chatServer) SendChatMessage(ctx context.Context, msg *pb.ChatMessage) (*emptypb.Empty, error) {
 	log.Printf("Received message from %s in chat room %s: %s", msg.User, msg.ChatRoom, msg.Message)
-	// Publish the message to the chat room topic
-	err := s.nc.Publish(msg.ChatRoom, []byte(msg.Message))
+	// Serialize the protobuf message
+	data, err := proto.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	// Publish the serialized message to the chat room topic
+	err = s.nc.Publish(msg.ChatRoom, data)
 	if err != nil {
 		return nil, err
 	}
