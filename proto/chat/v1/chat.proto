@@ -20,4 +20,5 @@ message ChatMessage {
   string user = 1;
   string chatRoom = 2;
   string message = 3;
+  string uuid = 4;
 }

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	pb "github.com/wcygan/chat-v1/generated/go/chat/v1"
 	"google.golang.org/grpc"
@@ -13,11 +14,14 @@ import (
 )
 
 var (
-	username string
-	chatroom string
+	username   string
+	chatroom   string
+	clientUUID string
 )
 
 func main() {
+	clientUUID = uuid.New().String()
+
 	var rootCmd = &cobra.Command{
 		Use:   "chat-client",
 		Short: "Chat client to join and send messages to a chat room",
@@ -42,7 +46,6 @@ func runClient() {
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
-	log.Println("gRPC connection established")
 	defer conn.Close()
 	c := pb.NewChatServiceClient(conn)
 
@@ -55,6 +58,8 @@ func runClient() {
 	})
 	if err != nil {
 		log.Fatalf("could not join chat: %v", err)
+	} else {
+		log.Printf("Joined chatroom %s as %s", chatroom, username)
 	}
 
 	// Goroutine to receive messages
@@ -66,15 +71,17 @@ func runClient() {
 				break
 			} else if err != nil {
 				log.Fatalf("Failed to receive a message: %v", err)
+			} else if in.Uuid == clientUUID {
+				// Skip messages sent by this client
+			} else {
+				fmt.Printf("[%s]  %s\n", in.User, in.Message)
 			}
-			fmt.Printf("Received message %s from %s\n", in.Message, in.User)
 		}
 	}()
 
 	// Allow user to send messages interactively
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
-		fmt.Print("Enter message: ")
 		if !scanner.Scan() {
 			break
 		}
@@ -85,6 +92,7 @@ func runClient() {
 			User:     username,
 			ChatRoom: chatroom,
 			Message:  text,
+			Uuid:     clientUUID,
 		})
 		if err != nil {
 			log.Fatalf("could not send message: %v", err)
