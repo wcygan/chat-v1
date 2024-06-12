@@ -72,7 +72,7 @@ func (s *chatServer) JoinChat(req *pb.JoinChatRequest, stream pb.ChatService_Joi
 			log.Printf("Error deserializing message: %v", err)
 			return
 		}
-		log.Printf("Sending message from %s to %s in chat room %s: %s (UUID: %s)", msg.User, req.User, msg.ChatRoom, msg.Message, msg.Uuid) // Update this line
+		log.Printf("Sending message from %s to %s in chat room %s: %s", msg.User, req.User, msg.ChatRoom, msg.Message)
 		if err := stream.Send(&msg); err != nil {
 			log.Printf("Error sending message: %v", err)
 			return
@@ -98,7 +98,7 @@ func (s *chatServer) JoinChat(req *pb.JoinChatRequest, stream pb.ChatService_Joi
 }
 
 func (s *chatServer) SendChatMessage(ctx context.Context, msg *pb.ChatMessage) (*emptypb.Empty, error) {
-	log.Printf("Received message from %s in chat room %s: %s (UUID: %s)", msg.User, msg.ChatRoom, msg.Message, msg.Uuid) // Update this line
+	log.Printf("Received message from %s in chat room %s: %s", msg.User, msg.ChatRoom, msg.Message)
 	// Serialize the protobuf message
 	data, err := proto.Marshal(msg)
 	if err != nil {
