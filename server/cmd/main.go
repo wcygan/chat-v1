@@ -61,25 +61,39 @@ type chatServer struct {
 }
 
 func (s *chatServer) JoinChat(req *pb.JoinChatRequest, stream pb.ChatService_JoinChatServer) error {
+	// Create a channel to signal when the stream is closed
+	done := make(chan struct{})
+
 	// Subscribe to the chat room topic
-	_, err := s.nc.Subscribe(req.ChatRoom, func(m *nats.Msg) {
+	sub, err := s.nc.Subscribe(req.ChatRoom, func(m *nats.Msg) {
 		var msg pb.ChatMessage
 		// Deserialize the protobuf message
 		if err := proto.Unmarshal(m.Data, &msg); err != nil {
 			log.Printf("Error deserializing message: %v", err)
 			return
 		}
-		log.Printf("Sending message from %s in chat room %s: %s", msg.User, msg.ChatRoom, msg.Message)
-		err := stream.Send(&msg)
-		if err != nil {
+		log.Printf("Sending message from %s to %s in chat room %s: %s", msg.User, req.User, msg.ChatRoom, msg.Message)
+		if err := stream.Send(&msg); err != nil {
 			log.Printf("Error sending message: %v", err)
 			return
 		}
 	})
 	if err != nil {
-		log.Printf("Error sending message: %v", err)
 		return err
 	}
+
+	// Wait for the client to close the stream
+	<-stream.Context().Done()
+	log.Printf("%s disconnected from chat room %s", req.User, req.ChatRoom)
+
+	// Unsubscribe from the NATS topic
+	if err := sub.Unsubscribe(); err != nil {
+		log.Printf("Error unsubscribing: %v", err)
+	}
+
+	// Signal that the stream is closed
+	close(done)
+
 	return nil
 }
 

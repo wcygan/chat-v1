@@ -10,15 +10,18 @@ import (
 )
 
 func main() {
-	conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
+	conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
+	log.Println("gRPC connection established")
 	defer conn.Close()
 	c := pb.NewChatServiceClient(conn)
 
 	// Join chat
-	stream, err := c.JoinChat(context.Background(), &pb.JoinChatRequest{
+	joinCtx, joinCancel := context.WithCancel(context.Background())
+	defer joinCancel()
+	stream, err := c.JoinChat(joinCtx, &pb.JoinChatRequest{
 		User:     "user1",
 		ChatRoom: "room1",
 	})
@@ -39,7 +42,9 @@ func main() {
 	}()
 
 	// Send a message
-	_, err = c.SendChatMessage(context.Background(), &pb.ChatMessage{
+	sendCtx, sendCancel := context.WithCancel(context.Background())
+	defer sendCancel()
+	_, err = c.SendChatMessage(sendCtx, &pb.ChatMessage{
 		User:     "user1",
 		ChatRoom: "room1",
 		Message:  "Hello, World!",
